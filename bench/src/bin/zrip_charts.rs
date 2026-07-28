@@ -63,9 +63,7 @@ const SIZE_DECODE_LABELS: &[&str] = &["512", "1K", "2K", "4K", "8K", "16K", "32K
 
 const SCATTER_LOG_X_MIN: f64 = 1.477; // 10^1.477 ~= 30 MB/s
 const SCATTER_LOG_X_MAX: f64 = 4.0; // 10^4 = 10000 MB/s
-const SCATTER_X_TICKS: &[f64] = &[
-    50.0, 100.0, 200.0, 500.0, 1000.0, 2000.0, 5000.0, 10000.0,
-];
+const SCATTER_X_TICKS: &[f64] = &[50.0, 100.0, 200.0, 500.0, 1000.0, 2000.0, 5000.0, 10000.0];
 
 #[derive(Clone)]
 struct CodecStyle {
@@ -1053,9 +1051,11 @@ fn draw_marker_legend(
     }
 
     let gap = 22.0;
-    let widths = styles.iter().map(|s| marker_item_width(s)).collect::<Vec<_>>();
-    let one_row_total =
-        widths.iter().sum::<f64>() + styles.len().saturating_sub(1) as f64 * gap;
+    let widths = styles
+        .iter()
+        .map(|s| marker_item_width(s))
+        .collect::<Vec<_>>();
+    let one_row_total = widths.iter().sum::<f64>() + styles.len().saturating_sub(1) as f64 * gap;
     if one_row_total <= max_width || styles.len() == 1 {
         let mut x = mid_x - one_row_total / 2.0;
         for (style, item_w) in styles.iter().zip(widths) {
@@ -1077,8 +1077,8 @@ fn draw_marker_legend(
             let col = i % candidate_columns;
             candidate_widths[col] = candidate_widths[col].max(*item_w);
         }
-        let total = candidate_widths.iter().sum::<f64>()
-            + candidate_columns.saturating_sub(1) as f64 * gap;
+        let total =
+            candidate_widths.iter().sum::<f64>() + candidate_columns.saturating_sub(1) as f64 * gap;
         if total <= max_width || candidate_columns == 1 {
             columns = candidate_columns;
             rows = candidate_rows;
@@ -1857,13 +1857,11 @@ fn draw_scatter_panel(
         HPos::Center,
         true,
     )?;
-    let map_x =
-        |mbs: f64| {
-            x_left
-                + (mbs.log10() - SCATTER_LOG_X_MIN)
-                    / (SCATTER_LOG_X_MAX - SCATTER_LOG_X_MIN)
-                    * (x_right - x_left)
-        };
+    let map_x = |mbs: f64| {
+        x_left
+            + (mbs.log10() - SCATTER_LOG_X_MIN) / (SCATTER_LOG_X_MAX - SCATTER_LOG_X_MIN)
+                * (x_right - x_left)
+    };
     let clip_x = |x: f64| x.clamp(x_left, x_right);
     let map_y = |r: f64| p_bot - (r - y_lo) / (y_hi - y_lo) * (p_bot - p_top);
 
