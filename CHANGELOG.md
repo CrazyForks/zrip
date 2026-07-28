@@ -2,11 +2,27 @@
 
 ## [Unreleased]
 
+## [0.8.4]
+
+### Added
+
+- Added Kani proof harnesses for unsafe encoder and decoder primitive bounds.
+
 ### Changed
 
 - Updated the JSR publish workflow to run `jsr publish` from GitHub Actions
   for provenance-backed CI publishing.
 - Bumped JSR package `@paddor/zrip` to 0.5.3.
+- Bumped `fearless_simd` to 0.6 and the MSRV to Rust 1.89.
+- Replaced the Python chart scripts with the Rust Plotters chart generator.
+- Reworked benchmark corpus bootstrap and removed the `binggan` benchmark.
+- Refreshed x86_64 benchmark charts.
+- Marked helper functions with caller-upheld safety preconditions as
+  `unsafe fn`.
+
+### Fixed
+
+- Made `compress_into` write directly into the caller-provided output buffer.
 
 ## [0.8.3]
 
