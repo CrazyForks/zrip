@@ -171,7 +171,7 @@ L1
 </text>
 <circle cx="470" cy="249" r="3" opacity="1" fill="#C084FC" stroke="none" stroke-width="1"/>
 <text x="476" y="249" dy="0.5ex" text-anchor="start" font-family="sans-serif" font-size="7.258064516129032" opacity="1" fill="#C084FC" font-weight="bold">
-L1
+LZ4
 </text>
 <text x="450" y="350" dy="0.5ex" text-anchor="middle" font-family="sans-serif" font-size="8.870967741935484" opacity="1" fill="#7D8590">
 encode MB/s (log)
@@ -253,7 +253,7 @@ L1
 L3
 </text>
 <circle cx="288" cy="446" r="3" opacity="1" fill="#60A5FA" stroke="none" stroke-width="1"/>
-<polyline fill="none" opacity="1" stroke="#F87171" stroke-width="1" points="353,609 337,581 329,571 326,567 322,559 317,548 313,539 307,528 291,511 271,495 248,488 210,479 "/>
+<polyline fill="none" opacity="1" stroke="#F87171" stroke-width="1" points="353,609 337,581 329,571 326,567 322,559 317,548 313,539 307,528 291,511 271,495 247,488 208,479 "/>
 <circle cx="353" cy="609" r="3" opacity="1" fill="#F87171" stroke="none" stroke-width="1"/>
 <text x="359" y="609" dy="0.5ex" text-anchor="start" font-family="sans-serif" font-size="7.258064516129032" opacity="1" fill="#F87171" font-weight="bold">
 L-8
@@ -273,11 +273,11 @@ L-1
 L1
 </text>
 <circle cx="271" cy="495" r="3" opacity="1" fill="#F87171" stroke="none" stroke-width="1"/>
-<circle cx="248" cy="488" r="3" opacity="1" fill="#F87171" stroke="none" stroke-width="1"/>
-<text x="254" y="488" dy="0.5ex" text-anchor="start" font-family="sans-serif" font-size="7.258064516129032" opacity="1" fill="#F87171" font-weight="bold">
+<circle cx="247" cy="488" r="3" opacity="1" fill="#F87171" stroke="none" stroke-width="1"/>
+<text x="253" y="488" dy="0.5ex" text-anchor="start" font-family="sans-serif" font-size="7.258064516129032" opacity="1" fill="#F87171" font-weight="bold">
 L3
 </text>
-<circle cx="210" cy="479" r="3" opacity="1" fill="#F87171" stroke="none" stroke-width="1"/>
+<circle cx="208" cy="479" r="3" opacity="1" fill="#F87171" stroke="none" stroke-width="1"/>
 <polyline fill="none" opacity="1" stroke="#F59E0B" stroke-width="1" points="345,606 342,602 335,594 329,585 321,575 313,564 303,553 287,492 262,468 200,454 196,447 "/>
 <circle cx="345" cy="606" r="3" opacity="1" fill="#F59E0B" stroke="none" stroke-width="1"/>
 <text x="351" y="606" dy="0.5ex" text-anchor="start" font-family="sans-serif" font-size="7.258064516129032" opacity="1" fill="#F59E0B" font-weight="bold">
@@ -333,7 +333,7 @@ L1
 </text>
 <circle cx="423" cy="619" r="3" opacity="1" fill="#C084FC" stroke="none" stroke-width="1"/>
 <text x="429" y="619" dy="0.5ex" text-anchor="start" font-family="sans-serif" font-size="7.258064516129032" opacity="1" fill="#C084FC" font-weight="bold">
-L1
+LZ4
 </text>
 <text x="450" y="685" dy="0.5ex" text-anchor="middle" font-family="sans-serif" font-size="8.870967741935484" opacity="1" fill="#7D8590">
 encode MB/s (log)
@@ -491,7 +491,7 @@ L1
 </text>
 <circle cx="688" cy="963" r="3" opacity="1" fill="#C084FC" stroke="none" stroke-width="1"/>
 <text x="694" y="963" dy="0.5ex" text-anchor="start" font-family="sans-serif" font-size="7.258064516129032" opacity="1" fill="#C084FC" font-weight="bold">
-L1
+LZ4
 </text>
 <text x="450" y="1020" dy="0.5ex" text-anchor="middle" font-family="sans-serif" font-size="8.870967741935484" opacity="1" fill="#7D8590">
 encode MB/s (log)

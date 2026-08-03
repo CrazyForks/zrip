@@ -963,6 +963,14 @@ fn fmt_level(level: i32) -> String {
     format!("L{level}")
 }
 
+fn fmt_scatter_level(codec: &str, level: i32) -> String {
+    if codec == "lz4rip" && level == LEVEL {
+        "LZ4".to_string()
+    } else {
+        fmt_level(level)
+    }
+}
+
 fn human_size(n: usize) -> String {
     if n >= 1_000_000 {
         format!("{:.1} MB", n as f64 / 1_000_000.0)
@@ -1929,7 +1937,7 @@ fn draw_scatter_panel(
                 };
                 text(
                     area,
-                    fmt_level(level),
+                    fmt_scatter_level(codec, level),
                     px(label_x),
                     px(sy),
                     8,
@@ -2384,4 +2392,19 @@ fn band_envelope(
         hi.push((map_x(SMALL_SIZES[i]), map_y(max)));
     }
     (lo, hi)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn scatter_level_label_names_lz4rip_as_lz4() {
+        assert_eq!(fmt_scatter_level("lz4rip", LEVEL), "LZ4");
+    }
+
+    #[test]
+    fn scatter_level_label_keeps_zstd_levels() {
+        assert_eq!(fmt_scatter_level("C zstd", LEVEL), "L1");
+    }
 }
