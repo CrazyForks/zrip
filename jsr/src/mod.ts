@@ -156,7 +156,7 @@ export async function init(): Promise<void> {
   if (initialized) return;
 
   const simd = WebAssembly.validate(SIMD_TEST);
-  const wasmFile = simd ? "zrip_simd.wasm" : "zrip_scalar.wasm";
+  const wasmFile = simd ? "zrip_simd.wasm" : "zrip_wasm_bg.wasm";
   const wasmUrl = new URL(`./pkg/${wasmFile}`, import.meta.url);
   const response = await fetch(wasmUrl);
   const bytes = await response.arrayBuffer();

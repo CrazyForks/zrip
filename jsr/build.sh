@@ -16,7 +16,7 @@ cd ..
 cp "$TMP/zrip_wasm.js" "$PKG/"
 cp "$TMP/zrip_wasm.d.ts" "$PKG/"
 cp "$TMP/zrip_wasm_bg.wasm.d.ts" "$PKG/"
-mv "$TMP/zrip_wasm_bg.wasm" "$PKG/zrip_scalar.wasm"
+mv "$TMP/zrip_wasm_bg.wasm" "$PKG/"
 
 echo "==> Building simd128 WASM..."
 cd wasm
@@ -33,6 +33,6 @@ fi
 
 rm -rf "$TMP"
 
-SCALAR_SIZE=$(wc -c < "$PKG/zrip_scalar.wasm")
+SCALAR_SIZE=$(wc -c < "$PKG/zrip_wasm_bg.wasm")
 SIMD_SIZE=$(wc -c < "$PKG/zrip_simd.wasm")
 echo "==> Done. scalar: ${SCALAR_SIZE} bytes, simd128: ${SIMD_SIZE} bytes"
