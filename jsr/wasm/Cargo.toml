@@ -2,6 +2,9 @@
 name = "zrip-wasm"
 version = "0.1.0"
 edition = "2024"
+description = "WebAssembly bindings for zrip"
+repository = "https://github.com/paddor/zrip"
+license-file = "../../LICENSE"
 publish = false
 
 [lib]
