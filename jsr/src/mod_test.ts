@@ -11,6 +11,17 @@ import {
   init,
 } from "./mod.ts";
 
+function concatArrays(...parts: Uint8Array[]): Uint8Array {
+  const length = parts.reduce((sum, part) => sum + part.length, 0);
+  const output = new Uint8Array(length);
+  let offset = 0;
+  for (const part of parts) {
+    output.set(part, offset);
+    offset += part.length;
+  }
+  return output;
+}
+
 Deno.test("init", async () => {
   await init();
 });
@@ -53,6 +64,32 @@ Deno.test("incompressible data", () => {
   assertEquals(decompressed, random);
 });
 
+Deno.test("decompress limit applies to full concatenated stream", () => {
+  const data1 = new TextEncoder().encode("limited stream one".repeat(20));
+  const data2 = new TextEncoder().encode("limited stream two".repeat(20));
+  const stream = concatArrays(compress(data1), compress(data2));
+  const expected = concatArrays(data1, data2);
+
+  assertThrows(
+    () => decompress(stream, { maxDecompressedSize: expected.length - 1 }),
+    Error,
+  );
+  assertEquals(
+    decompress(stream, { maxDecompressedSize: expected.length }),
+    expected,
+  );
+});
+
+Deno.test("decompress rejects invalid limit option", () => {
+  const data = new TextEncoder().encode("test");
+  const compressed = compress(data);
+
+  assertThrows(
+    () => decompress(compressed, { maxDecompressedSize: -1 }),
+    RangeError,
+  );
+});
+
 // --- Stateful ---
 
 Deno.test("stateful compressor", () => {
@@ -80,6 +117,25 @@ Deno.test("stateful decompressor", () => {
   assertEquals(decompressor.decompress(c1), data1);
   assertEquals(decompressor.decompress(c2), data2);
 
+  decompressor.free();
+});
+
+Deno.test("stateful decompressor limit applies", () => {
+  const data = new TextEncoder().encode("stateful limited output".repeat(20));
+  const compressed = compress(data);
+
+  const decompressor = new Decompressor();
+  assertThrows(
+    () =>
+      decompressor.decompress(compressed, {
+        maxDecompressedSize: data.length - 1,
+      }),
+    Error,
+  );
+  assertEquals(
+    decompressor.decompress(compressed, { maxDecompressedSize: data.length }),
+    data,
+  );
   decompressor.free();
 });
 
@@ -148,6 +204,25 @@ Deno.test("dictionary one-shot round-trip", () => {
   const compressed = compressWithDict(samples, 1, dict);
   const decompressed = decompressWithDict(compressed, dict);
   assertEquals(decompressed, samples);
+});
+
+Deno.test("dictionary decompress limit applies", () => {
+  const { dict, samples } = getDict();
+  const compressed = compressWithDict(samples, 1, dict);
+
+  assertThrows(
+    () =>
+      decompressWithDict(compressed, dict, {
+        maxDecompressedSize: samples.length - 1,
+      }),
+    Error,
+  );
+  assertEquals(
+    decompressWithDict(compressed, dict, {
+      maxDecompressedSize: samples.length,
+    }),
+    samples,
+  );
 });
 
 Deno.test("dictionary all levels", () => {

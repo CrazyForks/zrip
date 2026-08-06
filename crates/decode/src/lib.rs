@@ -37,7 +37,7 @@ use alloc::boxed::Box;
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 
-use crate::exec::{decode_execute_sequences, decode_execute_single_sequence};
+use crate::exec::{SequenceOutputScope, decode_execute_sequences, decode_execute_single_sequence};
 use crate::literals::decode_literals_ws;
 use crate::sequences::{SequenceDecodeTables, parse_sequence_count, parse_sequence_tables_ws};
 use zrip_core::block::{BlockType, parse_block_header};
@@ -149,8 +149,21 @@ pub(crate) fn skip_skippable_frame(data: &[u8]) -> Option<usize> {
     Some(total)
 }
 
+pub(crate) fn remaining_output_limit(
+    output_len: usize,
+    output_start: usize,
+    max_output: usize,
+) -> Result<usize, DecompressError> {
+    let written = output_len
+        .checked_sub(output_start)
+        .expect("output length should not shrink during decompression");
+    max_output
+        .checked_sub(written)
+        .ok_or(DecompressError::OutputTooSmall)
+}
+
 pub fn decompress(input: &[u8]) -> Result<Vec<u8>, DecompressError> {
-    decompress_with_dict(input, None)
+    decompress_with_dict_and_limit(input, None, zrip_core::DEFAULT_DECOMPRESS_LIMIT)
 }
 
 /// Decompress with an explicit output size limit.
@@ -162,19 +175,7 @@ pub fn decompress_with_limit(
     input: &[u8],
     max_output_size: usize,
 ) -> Result<Vec<u8>, DecompressError> {
-    let mut output = Vec::new();
-    let mut ws = Box::new(BlockDecodeWorkspace::new());
-    let mut offset = 0;
-    while offset < input.len() {
-        let remaining = &input[offset..];
-        if let Some(skip_len) = skip_skippable_frame(remaining) {
-            offset += skip_len;
-            continue;
-        }
-        let consumed = decompress_frame(remaining, &mut output, max_output_size, None, &mut ws)?;
-        offset += consumed;
-    }
-    Ok(output)
+    decompress_with_dict_and_limit(input, None, max_output_size)
 }
 
 pub fn decompress_into(input: &[u8], output: &mut Vec<u8>) -> Result<usize, DecompressError> {
@@ -188,7 +189,8 @@ pub fn decompress_into(input: &[u8], output: &mut Vec<u8>) -> Result<usize, Deco
             offset += skip_len;
             continue;
         }
-        let consumed = decompress_frame(remaining, output, max_output, None, &mut ws)?;
+        let frame_limit = remaining_output_limit(output.len(), start, max_output)?;
+        let consumed = decompress_frame(remaining, output, frame_limit, None, &mut ws)?;
         offset += consumed;
     }
     Ok(output.len() - start)
@@ -198,7 +200,14 @@ pub fn decompress_with_dict(
     input: &[u8],
     dict: Option<&zrip_core::dict::Dictionary>,
 ) -> Result<Vec<u8>, DecompressError> {
-    let max_output = zrip_core::DEFAULT_DECOMPRESS_LIMIT;
+    decompress_with_dict_and_limit(input, dict, zrip_core::DEFAULT_DECOMPRESS_LIMIT)
+}
+
+pub fn decompress_with_dict_and_limit(
+    input: &[u8],
+    dict: Option<&zrip_core::dict::Dictionary>,
+    max_output_size: usize,
+) -> Result<Vec<u8>, DecompressError> {
     let mut output = Vec::new();
     let mut ws = Box::new(BlockDecodeWorkspace::new());
     let mut offset = 0;
@@ -209,7 +218,8 @@ pub fn decompress_with_dict(
             offset += skip_len;
             continue;
         }
-        let consumed = decompress_frame(remaining, &mut output, max_output, dict, &mut ws)?;
+        let frame_limit = remaining_output_limit(output.len(), 0, max_output_size)?;
+        let consumed = decompress_frame(remaining, &mut output, frame_limit, dict, &mut ws)?;
         offset += consumed;
     }
 
@@ -499,6 +509,13 @@ fn decode_compressed_block(
     let seq_data = &table_data[tables_consumed..];
 
     let before = output.len();
+    let max_block_output = remaining_output_limit(output.len(), output_start, max_output)?
+        .min(zrip_core::frame::MAX_BLOCK_SIZE);
+    let scope = SequenceOutputScope {
+        output_base: output_start,
+        max_block_output,
+        history: dict_history,
+    };
 
     let result = decode_sequences_dispatch(
         seq_data,
@@ -507,11 +524,14 @@ fn decode_compressed_block(
         rep_offsets,
         &ws.literal_buf,
         output,
-        dict_history,
+        scope,
     );
     result?;
     if output.len() - before > zrip_core::frame::MAX_BLOCK_SIZE {
         return Err(DecompressError::BlockTooLarge);
+    }
+    if output.len() - output_start > max_output {
+        return Err(DecompressError::OutputTooSmall);
     }
 
     Ok(())
@@ -525,17 +545,17 @@ pub(crate) fn decode_sequences_dispatch(
     rep_offsets: &mut [u32; 3],
     literals: &[u8],
     output: &mut Vec<u8>,
-    history: &[u8],
+    scope: SequenceOutputScope<'_>,
 ) -> Result<(), DecompressError> {
     if num_sequences == 1 {
-        if history.is_empty() {
+        if scope.history.is_empty() {
             return decode_execute_single_sequence::<false>(
                 seq_data,
                 seq_tables,
                 rep_offsets,
                 literals,
                 output,
-                history,
+                scope,
             );
         }
         return decode_execute_single_sequence::<true>(
@@ -544,7 +564,7 @@ pub(crate) fn decode_sequences_dispatch(
             rep_offsets,
             literals,
             output,
-            history,
+            scope,
         );
     }
 
@@ -554,7 +574,7 @@ pub(crate) fn decode_sequences_dispatch(
         static LEVEL: OnceLock<fearless_simd::Level> = OnceLock::new();
         let level = *LEVEL.get_or_init(fearless_simd::Level::new);
         return fearless_simd::dispatch!(level, _simd => {
-            if history.is_empty() {
+            if scope.history.is_empty() {
                 decode_execute_sequences::<false>(
                     seq_data,
                     num_sequences,
@@ -562,7 +582,7 @@ pub(crate) fn decode_sequences_dispatch(
                     rep_offsets,
                     literals,
                     output,
-                    history,
+                    scope,
                 )
             } else {
                 decode_execute_sequences::<true>(
@@ -572,14 +592,14 @@ pub(crate) fn decode_sequences_dispatch(
                     rep_offsets,
                     literals,
                     output,
-                    history,
+                    scope,
                 )
             }
         });
     }
 
     #[allow(unreachable_code)]
-    if history.is_empty() {
+    if scope.history.is_empty() {
         decode_execute_sequences::<false>(
             seq_data,
             num_sequences,
@@ -587,7 +607,7 @@ pub(crate) fn decode_sequences_dispatch(
             rep_offsets,
             literals,
             output,
-            history,
+            scope,
         )
     } else {
         decode_execute_sequences::<true>(
@@ -597,7 +617,7 @@ pub(crate) fn decode_sequences_dispatch(
             rep_offsets,
             literals,
             output,
-            history,
+            scope,
         )
     }
 }

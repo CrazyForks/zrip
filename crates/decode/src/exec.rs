@@ -10,6 +10,13 @@ use zrip_core::error::DecompressError;
 use zrip_core::fse::FSE_SEQ_TABLE_MASK;
 use zrip_core::hint::{likely, unlikely};
 
+#[derive(Clone, Copy)]
+pub(crate) struct SequenceOutputScope<'a> {
+    pub(crate) output_base: usize,
+    pub(crate) max_block_output: usize,
+    pub(crate) history: &'a [u8],
+}
+
 #[allow(unused_assignments)]
 #[inline(always)]
 pub(crate) fn decode_execute_sequences<const HAS_HISTORY: bool>(
@@ -19,7 +26,7 @@ pub(crate) fn decode_execute_sequences<const HAS_HISTORY: bool>(
     offsets: &mut [u32; 3],
     literals: &[u8],
     output: &mut Vec<u8>,
-    history: &[u8],
+    scope: SequenceOutputScope<'_>,
 ) -> Result<(), DecompressError> {
     if num_sequences == 0 {
         return Ok(());
@@ -35,8 +42,10 @@ pub(crate) fn decode_execute_sequences<const HAS_HISTORY: bool>(
     let mut of_state = rev_reader.read_bits(tables.of_accuracy)?;
     let mut ml_state = rev_reader.read_bits(tables.ml_accuracy)?;
 
-    let mut output = BlockOutput::new(output, zrip_core::frame::MAX_BLOCK_SIZE);
+    let mut output = BlockOutput::new(output, scope.max_block_output);
     let mut op = output.len();
+    let output_base = scope.output_base;
+    let history = scope.history;
     let mut lit_off: usize = 0;
     let mut rep0 = offsets[0];
     let mut rep1 = offsets[1];
@@ -90,7 +99,7 @@ pub(crate) fn decode_execute_sequences<const HAS_HISTORY: bool>(
             }
 
             let off = $offset as usize;
-            let out_pos = op;
+            let out_pos = op - output_base;
             if HAS_HISTORY {
                 if likely(off <= out_pos) {
                     seq_output.copy_match(off)?;
@@ -98,6 +107,9 @@ pub(crate) fn decode_execute_sequences<const HAS_HISTORY: bool>(
                     seq_output.copy_match_from_history(history, off, out_pos)?;
                 }
             } else {
+                if unlikely(off == 0 || off > out_pos) {
+                    return Err(DecompressError::InvalidOffset);
+                }
                 if likely(off >= 16) {
                     seq_output.copy_match_16plus(off)?;
                 } else {
@@ -246,7 +258,7 @@ pub(crate) fn decode_execute_single_sequence<const HAS_HISTORY: bool>(
     offsets: &mut [u32; 3],
     literals: &[u8],
     output: &mut Vec<u8>,
-    history: &[u8],
+    scope: SequenceOutputScope<'_>,
 ) -> Result<(), DecompressError> {
     if data.is_empty() {
         return Err(DecompressError::CorruptSequences);
@@ -258,7 +270,9 @@ pub(crate) fn decode_execute_single_sequence<const HAS_HISTORY: bool>(
     let of_state = rev_reader.read_bits(tables.of_accuracy)?;
     let ml_state = rev_reader.read_bits(tables.ml_accuracy)?;
 
-    let mut output = BlockOutput::new(output, zrip_core::frame::MAX_BLOCK_SIZE);
+    let mut output = BlockOutput::new(output, scope.max_block_output);
+    let output_base = scope.output_base;
+    let history = scope.history;
 
     macro_rules! table_entry {
         ($table:expr, $state:expr) => {{
@@ -287,7 +301,7 @@ pub(crate) fn decode_execute_single_sequence<const HAS_HISTORY: bool>(
         seq_output.extend_literals_range(literals, 0)?;
 
         let off = offset as usize;
-        let out_pos = seq_output.len();
+        let out_pos = seq_output.len() - output_base;
         if HAS_HISTORY {
             if likely(off <= out_pos) {
                 seq_output.copy_match_single(off)?;
@@ -295,6 +309,9 @@ pub(crate) fn decode_execute_single_sequence<const HAS_HISTORY: bool>(
                 seq_output.copy_match_from_history(history, off, out_pos)?;
             }
         } else {
+            if unlikely(off == 0 || off > out_pos) {
+                return Err(DecompressError::InvalidOffset);
+            }
             seq_output.copy_match_single(off)?;
         }
     }

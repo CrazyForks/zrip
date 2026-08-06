@@ -1062,6 +1062,24 @@ fn decompress_c_with_dictionary() {
 }
 
 #[test]
+fn decompress_with_dict_and_limit_rejects_oversized_concatenated_output() {
+    let (samples, dict_data) = make_dict_samples();
+    let dict = zrip::dict::Dictionary::from_bytes(&dict_data).unwrap();
+    let expected: Vec<u8> = samples[..2].concat();
+    let mut stream = Vec::new();
+
+    for sample in &samples[..2] {
+        stream.extend_from_slice(&zrip::compress_with_dict(sample, 1, &dict).unwrap());
+    }
+
+    assert!(zrip::decompress_with_dict_and_limit(&stream, &dict, expected.len() - 1).is_err());
+    assert_eq!(
+        zrip::decompress_with_dict_and_limit(&stream, &dict, expected.len()).unwrap(),
+        expected
+    );
+}
+
+#[test]
 fn roundtrip_dict_compress_c_decompress() {
     let (samples, dict_data) = make_dict_samples();
     let dict = zrip::dict::Dictionary::from_bytes(&dict_data).unwrap();

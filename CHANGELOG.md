@@ -2,14 +2,20 @@
 
 ## [Unreleased]
 
+### Added
+
+- Added JSR decompression options for maximum decompressed size limits.
+
 ### Changed
 
-- Bumped JSR package `@paddor/zrip` to 0.5.4.
+- Bumped JSR package `@paddor/zrip` to 0.5.5.
 
 ### Fixed
 
 - The JSR package now ships scalar WASM as `zrip_wasm_bg.wasm`, matching
   wasm-bindgen glue while keeping `zrip_simd.wasm` for SIMD auto-detection.
+- Enforce decompression output limits across concatenated zstd frames instead
+  of applying the limit independently to each frame.
 
 ## [0.8.4]
 
