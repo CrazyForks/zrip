@@ -149,6 +149,19 @@ pub(crate) fn skip_skippable_frame(data: &[u8]) -> Option<usize> {
     Some(total)
 }
 
+pub(crate) fn remaining_output_limit(
+    output_len: usize,
+    output_start: usize,
+    max_output: usize,
+) -> Result<usize, DecompressError> {
+    let written = output_len
+        .checked_sub(output_start)
+        .expect("output length should not shrink during decompression");
+    max_output
+        .checked_sub(written)
+        .ok_or(DecompressError::OutputTooSmall)
+}
+
 pub fn decompress(input: &[u8]) -> Result<Vec<u8>, DecompressError> {
     decompress_with_dict(input, None)
 }
@@ -171,7 +184,8 @@ pub fn decompress_with_limit(
             offset += skip_len;
             continue;
         }
-        let consumed = decompress_frame(remaining, &mut output, max_output_size, None, &mut ws)?;
+        let frame_limit = remaining_output_limit(output.len(), 0, max_output_size)?;
+        let consumed = decompress_frame(remaining, &mut output, frame_limit, None, &mut ws)?;
         offset += consumed;
     }
     Ok(output)
@@ -188,7 +202,8 @@ pub fn decompress_into(input: &[u8], output: &mut Vec<u8>) -> Result<usize, Deco
             offset += skip_len;
             continue;
         }
-        let consumed = decompress_frame(remaining, output, max_output, None, &mut ws)?;
+        let frame_limit = remaining_output_limit(output.len(), start, max_output)?;
+        let consumed = decompress_frame(remaining, output, frame_limit, None, &mut ws)?;
         offset += consumed;
     }
     Ok(output.len() - start)
@@ -209,7 +224,8 @@ pub fn decompress_with_dict(
             offset += skip_len;
             continue;
         }
-        let consumed = decompress_frame(remaining, &mut output, max_output, dict, &mut ws)?;
+        let frame_limit = remaining_output_limit(output.len(), 0, max_output)?;
+        let consumed = decompress_frame(remaining, &mut output, frame_limit, dict, &mut ws)?;
         offset += consumed;
     }
 

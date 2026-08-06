@@ -496,6 +496,34 @@ fn decompress_with_limit_rejects_oversized_output() {
     assert!(ctx.decompress(&frame).is_ok());
 }
 
+#[cfg(feature = "std")]
+#[test]
+fn decompress_with_limit_rejects_oversized_concatenated_output() {
+    let data_a = vec![b'a'; 100];
+    let data_b = vec![b'b'; 100];
+    let mut stream = zrip::compress(&data_a, 1).unwrap();
+    stream.extend_from_slice(&zrip::compress(&data_b, 1).unwrap());
+
+    assert!(zrip::decompress_with_limit(&stream, 199).is_err());
+    assert_eq!(
+        zrip::decompress_with_limit(&stream, 200).unwrap().len(),
+        200
+    );
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn decompress_context_with_limit_rejects_oversized_concatenated_output() {
+    let data_a = vec![b'a'; 100];
+    let data_b = vec![b'b'; 100];
+    let mut stream = zrip::compress(&data_a, 1).unwrap();
+    stream.extend_from_slice(&zrip::compress(&data_b, 1).unwrap());
+
+    let mut ctx = zrip::DecompressContext::new();
+    assert!(ctx.decompress_with_limit(&stream, 199).is_err());
+    assert_eq!(ctx.decompress_with_limit(&stream, 200).unwrap().len(), 200);
+}
+
 // ===== ReverseBitReader unit tests =====
 
 #[test]

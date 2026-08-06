@@ -105,10 +105,11 @@ impl DecompressContext {
                 offset += skip_len;
                 continue;
             }
+            let frame_limit = super::remaining_output_limit(self.output.len(), 0, max_output)?;
             let consumed = super::decompress_frame(
                 remaining,
                 &mut self.output,
-                max_output,
+                frame_limit,
                 dict_ref,
                 &mut self.ws,
             )?;
