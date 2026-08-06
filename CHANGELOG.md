@@ -2,9 +2,13 @@
 
 ## [Unreleased]
 
+### Added
+
+- Added JSR decompression options for maximum decompressed size limits.
+
 ### Changed
 
-- Bumped JSR package `@paddor/zrip` to 0.5.4.
+- Bumped JSR package `@paddor/zrip` to 0.5.5.
 
 ### Fixed
 

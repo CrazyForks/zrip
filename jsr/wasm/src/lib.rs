@@ -1,5 +1,9 @@
 use wasm_bindgen::prelude::*;
 
+fn output_limit(max_output_size: Option<usize>) -> usize {
+    max_output_size.unwrap_or(zrip::DEFAULT_DECOMPRESS_LIMIT)
+}
+
 // === One-shot functions ===
 
 #[wasm_bindgen]
@@ -8,8 +12,9 @@ pub fn compress(input: &[u8], level: i32) -> Result<Vec<u8>, JsError> {
 }
 
 #[wasm_bindgen]
-pub fn decompress(input: &[u8]) -> Result<Vec<u8>, JsError> {
-    zrip::decompress(input).map_err(|e| JsError::new(&e.to_string()))
+pub fn decompress(input: &[u8], max_output_size: Option<usize>) -> Result<Vec<u8>, JsError> {
+    zrip::decompress_with_limit(input, output_limit(max_output_size))
+        .map_err(|e| JsError::new(&e.to_string()))
 }
 
 #[wasm_bindgen(js_name = "compressBound")]
@@ -52,8 +57,12 @@ pub fn compress_with_dict(
 }
 
 #[wasm_bindgen(js_name = "decompressWithDict")]
-pub fn decompress_with_dict(input: &[u8], dict: &ZstdDictionary) -> Result<Vec<u8>, JsError> {
-    zrip::decompress_with_dict(input, &dict.inner)
+pub fn decompress_with_dict(
+    input: &[u8],
+    dict: &ZstdDictionary,
+    max_output_size: Option<usize>,
+) -> Result<Vec<u8>, JsError> {
+    zrip::decompress_with_dict_and_limit(input, &dict.inner, output_limit(max_output_size))
         .map_err(|e| JsError::new(&e.to_string()))
 }
 
@@ -107,6 +116,12 @@ pub struct Decompressor {
     ctx: zrip::DecompressContext,
 }
 
+impl Default for Decompressor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[wasm_bindgen]
 impl Decompressor {
     #[wasm_bindgen(constructor)]
@@ -123,9 +138,13 @@ impl Decompressor {
         }
     }
 
-    pub fn decompress(&mut self, input: &[u8]) -> Result<Vec<u8>, JsError> {
+    pub fn decompress(
+        &mut self,
+        input: &[u8],
+        max_output_size: Option<usize>,
+    ) -> Result<Vec<u8>, JsError> {
         self.ctx
-            .decompress(input)
+            .decompress_with_limit(input, output_limit(max_output_size))
             .map(|cow| cow.into_owned())
             .map_err(|e| JsError::new(&e.to_string()))
     }

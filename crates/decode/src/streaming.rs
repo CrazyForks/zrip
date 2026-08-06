@@ -3,6 +3,7 @@
 use std::io::{self, Read};
 
 use crate::BlockDecodeWorkspace;
+use crate::exec::SequenceOutputScope;
 use crate::literals::decode_literals_ws;
 use crate::sequences::{SequenceDecodeTables, parse_sequence_count, parse_sequence_tables_ws};
 
@@ -441,6 +442,15 @@ impl<R: Read> FrameDecoder<R> {
         let seq_data = &table_data[tables_consumed..];
 
         let before = self.output_buf.len();
+        let max_block_output = self
+            .max_output
+            .saturating_sub(self.bytes_output)
+            .min(MAX_BLOCK_SIZE);
+        let scope = SequenceOutputScope {
+            output_base: 0,
+            max_block_output,
+            history,
+        };
         decode_sequences_dispatch(
             seq_data,
             num_sequences,
@@ -448,7 +458,7 @@ impl<R: Read> FrameDecoder<R> {
             &mut self.rep_offsets,
             &self.ws.literal_buf,
             &mut self.output_buf,
-            history,
+            scope,
         )
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
         if self.output_buf.len() - before > MAX_BLOCK_SIZE {

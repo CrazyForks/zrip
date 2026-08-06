@@ -14,7 +14,7 @@
  *
  * const data = new TextEncoder().encode("hello world".repeat(1000));
  * const compressed = compress(data, 1);
- * const original = decompress(compressed);
+ * const original = decompress(compressed, { maxDecompressedSize: data.length });
  * ```
  *
  * Reusable contexts amortize internal allocations across calls:
@@ -44,7 +44,9 @@
  *
  * const dict = new Dictionary(dictBytes);
  * const compressed = compressWithDict(data, 1, dict);
- * const original = decompressWithDict(compressed, dict);
+ * const original = decompressWithDict(compressed, dict, {
+ *   maxDecompressedSize: data.length,
+ * });
  * ```
  */
 
@@ -54,7 +56,7 @@ import {
   Compressor as _Compressor,
   compressWithDict as wasmCompressWithDict,
   decompress as wasmDecompress,
-  Decompressor as _Decompressor,
+  Decompressor as WasmDecompressor,
   decompressWithDict as wasmDecompressWithDict,
   Dictionary as _Dictionary,
   initSync,
@@ -78,23 +80,6 @@ export const Compressor: typeof _Compressor = _Compressor;
 export type Compressor = _Compressor;
 
 /**
- * Reusable decompression context. Amortizes internal allocations across
- * multiple decompress calls. Call {@linkcode Decompressor.free | .free()} when done,
- * or use `using` for automatic disposal.
- *
- * @example
- * ```ts
- * const decompressor = new Decompressor();
- * const d1 = decompressor.decompress(c1);
- * const d2 = decompressor.decompress(c2);
- * decompressor.free();
- * ```
- */
-export const Decompressor: typeof _Decompressor = _Decompressor;
-/** Type alias for {@linkcode Decompressor} instances. */
-export type Decompressor = _Decompressor;
-
-/**
  * Pre-parsed zstd dictionary for use with dictionary compression.
  * Construct from raw dictionary bytes (trained externally via `zstd --train`
  * or similar). Reuse across compress/decompress calls.
@@ -109,6 +94,82 @@ export type Decompressor = _Decompressor;
 export const Dictionary: typeof _Dictionary = _Dictionary;
 /** Type alias for {@linkcode Dictionary} instances. */
 export type Dictionary = _Dictionary;
+
+/** Options for decompression calls. */
+export interface DecompressOptions {
+  /** Maximum decompressed bytes allowed across the full input stream. */
+  maxDecompressedSize?: number;
+}
+
+const MAX_WASM_USIZE = 0xffff_ffff;
+
+function maxDecompressedSize(options?: DecompressOptions): number | undefined {
+  const max = options?.maxDecompressedSize;
+  if (max === undefined) return undefined;
+  if (!Number.isSafeInteger(max) || max < 0 || max > MAX_WASM_USIZE) {
+    throw new RangeError(
+      "maxDecompressedSize must be an integer from 0 to 4294967295",
+    );
+  }
+  return max;
+}
+
+const decompressorInner = new WeakMap<Decompressor, WasmDecompressor>();
+
+function getDecompressorInner(decompressor: Decompressor): WasmDecompressor {
+  const inner = decompressorInner.get(decompressor);
+  if (!inner) {
+    throw new TypeError("invalid or freed Decompressor");
+  }
+  return inner;
+}
+
+/**
+ * Reusable decompression context. Amortizes internal allocations across
+ * multiple decompress calls. Call {@linkcode Decompressor.free | .free()} when done,
+ * or use `using` for automatic disposal.
+ *
+ * @example
+ * ```ts
+ * const decompressor = new Decompressor();
+ * const d1 = decompressor.decompress(c1);
+ * const d2 = decompressor.decompress(c2, { maxDecompressedSize: data2.length });
+ * decompressor.free();
+ * ```
+ */
+export class Decompressor {
+  constructor() {
+    decompressorInner.set(this, new WasmDecompressor());
+  }
+
+  static withDict(dict: Dictionary): Decompressor {
+    const decompressor = new Decompressor();
+    getDecompressorInner(decompressor).free();
+    decompressorInner.set(decompressor, WasmDecompressor.withDict(dict));
+    return decompressor;
+  }
+
+  decompress(
+    input: Uint8Array,
+    options?: DecompressOptions,
+  ): Uint8Array {
+    return getDecompressorInner(this).decompress(
+      input,
+      maxDecompressedSize(options),
+    );
+  }
+
+  free(): void {
+    const inner = decompressorInner.get(this);
+    if (!inner) return;
+    decompressorInner.delete(this);
+    inner.free();
+  }
+
+  [Symbol.dispose](): void {
+    this.free();
+  }
+}
 
 // Minimal valid WASM module that uses a v128 instruction.
 // WebAssembly.validate() returns true only if the engine supports simd128.
@@ -194,14 +255,18 @@ export function compress(input: Uint8Array, level = 1): Uint8Array {
 }
 
 /**
- * Decompress a zstd frame.
+ * Decompress a zstd frame or concatenated zstd frame stream.
  *
  * @param input Compressed zstd frame.
+ * @param options Optional decompression limits.
  * @returns Decompressed data as a `Uint8Array`.
  * @throws On invalid, truncated, or corrupted input.
  */
-export function decompress(input: Uint8Array): Uint8Array {
-  return wasmDecompress(input);
+export function decompress(
+  input: Uint8Array,
+  options?: DecompressOptions,
+): Uint8Array {
+  return wasmDecompress(input, maxDecompressedSize(options));
 }
 
 /**
@@ -231,16 +296,19 @@ export function compressWithDict(
 }
 
 /**
- * Decompress a zstd frame that was compressed with a dictionary.
+ * Decompress a zstd frame or concatenated zstd frame stream that was
+ * compressed with a dictionary.
  *
  * @param input Compressed zstd frame.
  * @param dict The same {@linkcode Dictionary} used during compression.
+ * @param options Optional decompression limits.
  * @returns Decompressed data as a `Uint8Array`.
  * @throws On invalid input or dictionary mismatch.
  */
 export function decompressWithDict(
   input: Uint8Array,
   dict: Dictionary,
+  options?: DecompressOptions,
 ): Uint8Array {
-  return wasmDecompressWithDict(input, dict);
+  return wasmDecompressWithDict(input, dict, maxDecompressedSize(options));
 }

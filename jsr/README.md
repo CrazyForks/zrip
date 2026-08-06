@@ -16,6 +16,7 @@ await init();
 const data = new TextEncoder().encode("hello world".repeat(1000));
 const compressed = compress(data, 1);
 const original = decompress(compressed);
+const bounded = decompress(compressed, { maxDecompressedSize: data.length });
 ```
 
 ### Compression levels
@@ -70,7 +71,9 @@ await init();
 
 const dict = new Dictionary(dictBytes);
 const compressed = compressWithDict(data, 1, dict);
-const original = decompressWithDict(compressed, dict);
+const original = decompressWithDict(compressed, dict, {
+  maxDecompressedSize: data.length,
+});
 
 // Stateful with dict
 const compressor = Compressor.withDict(1, dict);

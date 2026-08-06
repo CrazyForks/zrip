@@ -115,6 +115,15 @@ pub fn decompress_with_dict(
 }
 
 #[cfg(feature = "alloc")]
+pub fn decompress_with_dict_and_limit(
+    input: &[u8],
+    dict: &zrip_core::dict::Dictionary,
+    max_output_size: usize,
+) -> Result<alloc::vec::Vec<u8>, DecompressError> {
+    zrip_decode::decompress_with_dict_and_limit(input, Some(dict), max_output_size)
+}
+
+#[cfg(feature = "alloc")]
 pub fn decompress_with_limit(
     input: &[u8],
     max_output_size: usize,
