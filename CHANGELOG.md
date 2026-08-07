@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.8.5]
+
 ### Added
 
 - Added JSR decompression options for maximum decompressed size limits.
